@@ -1,206 +1,127 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나만의 건물 도감 (링크 이동 기능 추가)</title>
-    <style>
-        body { 
-            font-family: 'Malgun Gothic', sans-serif; 
-            text-align: center; 
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 { color: #333; margin-bottom: 10px; }
-        p { color: #666; }
-        
-        /* 버튼 스타일 */
-        button {
-            padding: 15px 30px;
-            font-size: 18px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: background 0.3s;
-        }
-        button:hover { background-color: #0056b3; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>5호관(봉림관) 정보</title>
+  <style>
+    :root{--bg:#f5f5f5;--card:#ffffff;--accent:#1e3a8a}
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: Inter, Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background:var(--bg);
+      color:#111;
+    }
+    header{background:var(--accent);color:#fff;padding:14px;text-align:center;font-weight:700}
+    .container{max-width:1000px;margin:20px auto;padding:16px}
 
-        /* 웹캠 화면 스타일 */
-        #webcam-container { 
-            margin-top: 20px; 
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            display: inline-block;
-        }
-        #webcam-container canvas {
-            max-width: 100%;
-            height: auto;
-        }
+    /* floorplan image */
+    .floorplan{width:100%;height:auto;border-radius:10px;display:block;margin-bottom:18px;border:1px solid rgba(0,0,0,0.06)}
 
-        /* 결과 보여주는 박스 스타일 (수정됨: 클릭 가능 표시) */
-        #info-container { 
-            margin: 20px auto; 
-            padding: 20px; 
-            max-width: 500px;
-            border-radius: 15px;
-            background-color: white; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            display: none; 
-            cursor: pointer; /* 손가락 모양 커서 */
-            transition: transform 0.2s; /* 클릭 효과 */
-            border: 2px solid transparent;
-        }
-        
-        /* 클릭 시 살짝 눌리는 효과 */
-        #info-container:active {
-            transform: scale(0.98);
-        }
-        
-        /* 클릭 유도 테두리 효과 (선택사항) */
-        #info-container.clickable {
-            border-color: #007bff;
-        }
+    /* controls */
+    .controls{display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:16px}
+    .controls button{padding:6px 12px;border-radius:8px;border:none;background:var(--accent);color:white;font-weight:600;cursor:pointer}
+    .controls select{padding:8px 14px;border-radius:8px;border:1px solid #bbb;font-size:16px;font-weight:600;cursor:pointer}
 
-        .building-name { font-size: 28px; font-weight: bold; color: #2c3e50; margin-bottom: 10px;}
-        .building-desc { font-size: 16px; color: #555; line-height: 1.6;}
-        .link-notice { font-size: 14px; color: #007bff; margin-top: 15px; font-weight: bold; text-decoration: underline; }
-        .score { font-size: 12px; color: #999; margin-top: 10px; }
-    </style>
+    /* info boxes */
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .info-box{background:var(--card);padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(16,24,40,0.04);}    
+    .info-box h2{margin:0 0 8px;font-size:16px}
+    .info-box p{margin:4px 0;color:#333;font-size:14px}
+    .info-box small{color:#6b7280}
+
+    @media (max-width:800px){
+      .grid{grid-template-columns:1fr}
+    }
+  </style>
 </head>
 <body>
+  <header>5호관 (2층)</header>
 
-    <h1>🏙️ 건물 정보 판독기</h1>
-    <p>카메라 접근을 허용하고 건물을 비춰주세요.<br>결과를 누르면 상세 페이지로 이동합니다.</p>
-    
-    <button type="button" onclick="init()">📸 카메라 켜기</button>
-    
-    <div id="webcam-container"></div>
-    
-    <div id="info-container">
-        <div id="result-name" class="building-name"></div>
-        <div id="result-desc" class="building-desc"></div>
-        <div id="link-msg" class="link-notice">🔗 터치하여 상세 정보 보기</div>
-        <div id="result-score" class="score"></div>
+  <div class="container">
+    <div class="controls">
+      <button id="prevFloor">◀</button>
+      <select id="floorSelect">
+        <option value="1">1층</option>
+        <option value="2">2층</option>
+      </select>
+      <button id="nextFloor">▶</button>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    
-    <script type="text/javascript">
-        const URL = "https://teachablemachine.withgoogle.com/models/FZXHT2jEt/";
+    <img id="floorImage" src="floorplan_1.png" alt="건물 도면" class="floorplan" />
 
-        let model, webcam, labelContainer, maxPredictions;
+    <script>
+      // 요소 가져오기
+      const floorImage = document.getElementById('floorImage');
+      const prevBtn = document.getElementById('prevFloor');
+      const nextBtn = document.getElementById('nextFloor');
+      const floorSelect = document.getElementById('floorSelect');
 
-        // ----------------------------------------------------------
-        // ★★★ [1] 건물 설명 데이터 ★★★
-        // ----------------------------------------------------------
-        const buildingInfo = {
-            "Class 1": "이곳은 강의실/도서관으로 가는 길입니다.", 
-            "건물이름2": "예: 이곳은 63빌딩입니다. 1985년에 완공되었습니다."
-        };
+      let currentFloor = 1;
+      const minFloor = 1;
+      const maxFloor = 2; // [수정됨] 최대 층수를 4에서 2로 변경
 
-        // ----------------------------------------------------------
-        // ★★★ [2] 건물 링크 데이터 (여기를 수정하세요) ★★★
-        // Teachable Machine의 'Class 1' 이름과 정확히 같아야 합니다.
-        // ----------------------------------------------------------
-        const buildingLinks = {
-            "https://teachablemachine.withgoogle.com/train/imag": "https://rkddmltlf.github.io/4",
-            "건물이름2": "https://www.google.com" // 다른 건물 링크 예시
-        };
+      function updateFloorDisplay() {
+        // 선택된 값과 이미지 동기화
+        if (floorSelect) floorSelect.value = String(currentFloor);
+        if (floorImage) floorImage.src = 'floorplan_' + currentFloor + '.png';
+      }
 
-        // 현재 감지된 건물의 링크를 저장할 변수
-        let currentLink = "";
+      // 버튼 이벤트 리스너
+      if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+          if (currentFloor > minFloor) {
+            currentFloor--;
+            updateFloorDisplay();
+          }
+        });
+      }
 
-        async function init() {
-            const modelURL = URL + "model.json";
-            const metadataURL = URL + "metadata.json";
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          if (currentFloor < maxFloor) {
+            currentFloor++;
+            updateFloorDisplay();
+          }
+        });
+      }
 
-            model = await tmImage.load(modelURL, metadataURL);
-            maxPredictions = model.getTotalClasses();
+      if (floorSelect) {
+        floorSelect.addEventListener('change', () => {
+          const val = parseInt(floorSelect.value, 10);
+          if (!isNaN(val) && val >= minFloor && val <= maxFloor) {
+            currentFloor = val;
+            updateFloorDisplay();
+          }
+        });
+      }
 
-            const flip = false; 
-            webcam = new tmImage.Webcam(300, 300, flip); 
-            await webcam.setup({ facingMode: "environment" }); 
-            await webcam.play();
-            window.requestAnimationFrame(loop);
-
-            const webcamContainer = document.getElementById("webcam-container");
-            webcamContainer.innerHTML = ""; 
-            webcamContainer.appendChild(webcam.canvas);
-            
-            document.querySelector("button").style.display = "none";
-            
-            // ★★★ [3] 결과 박스 클릭 이벤트 추가 ★★★
-            // 박스를 클릭하면 currentLink에 저장된 주소로 이동합니다.
-            document.getElementById("info-container").addEventListener("click", function() {
-                if (currentLink) {
-                    // 새 탭으로 열고 싶으면 아래 주석을 해제하고 window.location.href를 주석 처리하세요
-                    // window.open(currentLink, '_blank'); 
-                    window.location.href = currentLink; // 현재 창에서 이동
-                } else {
-                    alert("이 건물에는 연결된 링크가 없습니다.");
-                }
-            });
-        }
-
-        async function loop() {
-            webcam.update(); 
-            await predict();
-            window.requestAnimationFrame(loop);
-        }
-
-        async function predict() {
-            const prediction = await model.predict(webcam.canvas);
-            
-            let highestProp = 0;
-            let bestClassName = "";
-
-            for (let i = 0; i < maxPredictions; i++) {
-                if (prediction[i].probability > highestProp) {
-                    highestProp = prediction[i].probability;
-                    bestClassName = prediction[i].className;
-                }
-            }
-
-            const infoDiv = document.getElementById("info-container");
-            const nameDiv = document.getElementById("result-name");
-            const descDiv = document.getElementById("result-desc");
-            const linkMsgDiv = document.getElementById("link-msg");
-            const scoreDiv = document.getElementById("result-score");
-
-            // 정확도 85% 이상일 때만 표시
-            if (highestProp > 0.85) {
-                infoDiv.style.display = "block";
-                nameDiv.innerText = bestClassName;
-                
-                // 설명 업데이트
-                if(buildingInfo[bestClassName]) {
-                    descDiv.innerText = buildingInfo[bestClassName];
-                } else {
-                    descDiv.innerText = "정보 없음";
-                }
-
-                // ★★★ [4] 링크 연결 로직 ★★★
-                if (buildingLinks[bestClassName]) {
-                    currentLink = buildingLinks[bestClassName]; // 링크 저장
-                    infoDiv.classList.add("clickable"); // 테두리 파랗게
-                    linkMsgDiv.style.display = "block"; // "터치하여 이동" 문구 보이기
-                    linkMsgDiv.innerText = "🔗 터치하여 상세 페이지로 이동";
-                } else {
-                    currentLink = ""; // 링크 없음
-                    infoDiv.classList.remove("clickable");
-                    linkMsgDiv.style.display = "none"; // 문구 숨기기
-                }
-
-                scoreDiv.innerText = "정확도: " + (highestProp * 100).toFixed(1) + "%";
-            }
-        }
+      // 초기 실행
+      updateFloorDisplay();
     </script>
-</body>
 
+    <div class="grid">
+      <div class="info-box" id="printerBox">
+        <h2>프린터기</h2>
+        <p><strong>유무:</strong> 없음</p>
+
+      </div>
+
+      <div class="info-box" id="storeBox">
+        <h2>정수기</h2>
+        <p><strong>유무:</strong> 없음</p>
+       
+      
+      </div>
+
+      <div class="info-box" id="vendingBox">
+        <h2>자판기</h2>
+        <p><strong>유무:</strong> 없음</p>
+     
+        
+      </div>
+    </div>
+  </div>
+</body>
 </html>
